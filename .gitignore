@@ -158,3 +158,18 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+
+AWS-IoT-Shadows/secrets.py
+AWS-IoT-Shadows/*certificate.pem.crt
+AWS-IoT-Shadows/*private.pem.key
+AWS-IoT-Shadows/*public.pem.key
+AWS-IoT-Shadows/AmazonRootCA1.pem
+
+AWS-IoT-PubSub/*certificate.pem.crt
+AWS-IoT-PubSub/*private.pem.key
+AWS-IoT-PubSub/secrets.py
+AWS-IoT-PubSub/AmazonRootCA1.pem
+
+accessKeys.csv
+secrets.py
