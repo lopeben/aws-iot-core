@@ -62,11 +62,14 @@ class AWSIoTConnect(object):
         self.mqttc.on_message = atmessage
         
     def set_on_log_callback(self, atlog):
-        self.mqttc.on_log = self.atlog
-        
-    def iotconnect(self):
-        self.mqttc.tls_set(self.caPath, certfile=self.certPath, keyfile=self.keyPath, cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
+        self.mqttc.on_log = atlog
 
+    def set_topic(self, topic):
+        self.topic = topic
+        
+    def connect_attempt(self):
+
+        self.mqttc.tls_set(self.caPath, certfile=self.certPath, keyfile=self.keyPath, cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
         result_of_connection = self.mqttc.connect(self.awshost, self.awsport, keepalive=120)
 
         if result_of_connection == 0:
@@ -76,13 +79,13 @@ class AWSIoTConnect(object):
             self.connect = False
             return False
             
-    def send(self, data):
+    def publish(self, data):
         if self.connect == True:
             self.mqttc.publish(self.topic, data, qos=1)
         else:
             self.logger.debug("Can not send. Connect not established")
         
-    def start(self):
+    def listen(self):
         if self.connect == True:
             self.mqttc.loop_start()
         else:
