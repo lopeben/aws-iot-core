@@ -16,9 +16,9 @@ def main():
     aws.set_on_message_callback(atmessage)
     
     aws.set_credentials(rootcafile, certfile, keyfile)
-    aws.iotconnect()
+    aws.connect_attempt()
    
-    aws.start()
+    aws.listen()
     
     while True:
         sleep(2)
