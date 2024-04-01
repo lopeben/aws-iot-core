@@ -173,3 +173,5 @@ AWS-IoT-PubSub/AmazonRootCA1.pem
 
 accessKeys.csv
 secrets.py
+certificates/
+
