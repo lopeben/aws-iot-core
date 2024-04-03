@@ -175,3 +175,4 @@ accessKeys.csv
 secrets.py
 certificates/
 
+.archive/
