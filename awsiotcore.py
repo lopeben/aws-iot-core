@@ -117,7 +117,7 @@ class AWSIoTConnect(object):
         self.logger.debug("{0}, {1}, {2}, {3}".format(client, userdata, level, buf))
         
     def __callback(self, callbackid, args):
-        self.callbacks[callbackid](args))
+        self.callbacks[callbackid](args)
         
     def set_credentials(self, rootcafile, certfile, keyfile):
         self.caPath = rootcafile

@@ -12,7 +12,7 @@ def atmessage(client, userdata, msg):
 def main():
     aws = AWSIoTConnect(listener = True, topic = "test/event")
       
-    aws.set_on_message_callback(atmessage)
+    #aws.set_on_message_callback(atmessage)
     
     aws.set_credentials(rootcafile, certfile, keyfile)
     aws.connect_attempt()
