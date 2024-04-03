@@ -1,13 +1,15 @@
-import paho.mqtt.client as paho
 import os
-import socket
 import ssl
+import json
+import socket
+import logging
+
+import paho.mqtt.client as paho
+
 from time import sleep
 from random import uniform
-from secrets import IOT_ENDPOINT
-import json
 
-import logging
+
 logging.basicConfig(level=logging.INFO)
 
 # Refactored original source - https://github.com/mariocannistra/python-paho-mqtt-for-aws-iot
@@ -17,10 +19,12 @@ SHADOW_GET_ACCEPTED_CB    = 1
 SHADOW_GET_REJECTED_CB    = 2
 SHADOW_UPDATE_ACCEPTED_CB = 3
 SHADOW_UPDATE_REJECTED_CB = 4
+SUBSCRIBE_USER_CB         = 5
+PUBLISH_USER_CB           = 6
 
 class AWSIoTConnect(object):
 
-    def __init__(self, clientid = 'iotcore-paho', thingname = 'default', endpoint = IOT_ENDPOINT, listener = False, topic = "default", usrcallbacks = None):
+    def __init__(self, clientid, thingname, endpoint, topic = "default", listener = False, usercallbacks = None):
         self.connect   = False
         self.listener  = listener
         self.topic     = topic
@@ -34,7 +38,7 @@ class AWSIoTConnect(object):
         
         self.mqttc            = paho.Client(clientid)
         self.mqttc.on_connect = self.__on_connect
-        #self.mqttc.on_message = self.__on_message
+        self.mqttc.on_message = self.__on_message
         
         self.SHADOW_UPDATE_TOPIC          = "$aws/things/" + self.thingName + "/shadow/update"
         self.SHADOW_UPDATE_ACCEPTED_TOPIC = "$aws/things/" + self.thingName + "/shadow/update/accepted"
@@ -44,61 +48,55 @@ class AWSIoTConnect(object):
         self.SHADOW_GET_ACCEPTED_TOPIC    = "$aws/things/" + self.thingName + "/shadow/get/accepted"
         self.SHADOW_GET_REJECTED_TOPIC    = "$aws/things/" + self.thingName + "/shadow/get/rejected"
         
-        self.callbacks  = usrcallbacks
+        self.callbacks = usercallbacks
 
     def __on_connect(self, client, userdata, flags, rc):
         self.connect = True
         
         if self.listener:
-          
-            # Subscribe to Delta Topic
             self.mqttc.subscribe(self.SHADOW_UPDATE_DELTA_TOPIC, 1)
-            # Subscribe to Update Accepted and Rejected Topics
             self.mqttc.subscribe(self.SHADOW_UPDATE_ACCEPTED_TOPIC, 1)
             self.mqttc.subscribe(self.SHADOW_UPDATE_REJECTED_TOPIC, 1)	
-            # Subscribe to Get Accepted and Rejected Topics
             self.mqttc.subscribe(self.SHADOW_GET_ACCEPTED_TOPIC, 1)
             self.mqttc.subscribe(self.SHADOW_GET_REJECTED_TOPIC, 1)
             
-            # Subscribe to Standard PubSub topic 
             self.mqttc.subscribe(self.topic)
 
         self.logger.debug("{0}".format(rc))
-        
-        ## self.callback()
 
     def __on_message(self, client, userdata, msg):
-        self.logger.info("{0}, {1} - {2}".format(userdata, msg.topic, msg.payload))
+        self.logger.debug("{0}, {1} - {2}".format(userdata, msg.topic, msg.payload))
+
         if str(msg.topic) == self.SHADOW_UPDATE_DELTA_TOPIC:
             print( "\nNew Delta Message Received..." )
-            SHADOW_STATE_DELTA = msg.payload #str(msg.payload)
+            SHADOW_STATE_DELTA = msg.payload
             print( SHADOW_STATE_DELTA )
-            ## Insert here a user callback function
-            #self.callbacks[SHADOW_UPDATE_DELTA_CB]()
-            self.callback(SHADOW_UPDATE_DELTA_CB, (SHADOW_STATE_DELTA, "DELTA"))
-            ### LED_Status_Change(SHADOW_STATE_DELTA, "DELTA")
+            self.callbacks[SHADOW_UPDATE_DELTA_CB](self, SHADOW_STATE_DELTA, "DELTA")
+
         elif str(msg.topic) == self.SHADOW_GET_ACCEPTED_TOPIC:
             print( "\nReceived State Doc with Get Request..." )
-            SHADOW_STATE_DOC = msg.payload # str(msg.payload)
+            SHADOW_STATE_DOC = msg.payload
             print( SHADOW_STATE_DOC )
-            #self.callbacks[SHADOW_GET_ACCEPTED_CB]()
-            self.callback(SHADOW_GET_ACCEPTED_CB, (SHADOW_STATE_DOC, "GET_REQ"))
+            self.callbacks[SHADOW_GET_ACCEPTED_CB](self, SHADOW_STATE_DOC, "GET_REQ")
+
         elif str(msg.topic) == self.SHADOW_GET_REJECTED_TOPIC:
-            SHADOW_GET_ERROR = msg.payload #str(msg.payload)
-            print( "\n---ERROR--- Unable to fetch Shadow Doc...\nError Response: " + SHADOW_GET_ERROR )
+            print( "\n---ERROR--- Unable to fetch Shadow Doc!")
+            SHADOW_GET_ERROR = msg.payload
+            print( "Error Code: " + str(SHADOW_GET_ERROR) )
             self.callbacks[SHADOW_GET_REJECTED_CB]()
+
         elif str(msg.topic) == self.SHADOW_UPDATE_ACCEPTED_TOPIC:
-            print( "\nLED Status Change Updated SUCCESSFULLY in Shadow..." )
+            print( "\nWelcome Status Change Updated SUCCESSFULLY in Shadow..." )
             print( "Response JSON: " + str(msg.payload) )
             self.callbacks[SHADOW_UPDATE_ACCEPTED_CB]()
+
         elif str(msg.topic) == self.SHADOW_UPDATE_REJECTED_TOPIC:
-            SHADOW_UPDATE_ERROR = msg.payload #str(msg.payload)
+            SHADOW_UPDATE_ERROR = msg.payload
             print( "\n---ERROR--- Failed to Update the Shadow...\nError Response: " + SHADOW_UPDATE_ERROR )
             self.callbacks[SHADOW_UPDATE_REJECTED_CB]()
+        
         else:
-            print( "AWS Response Topic: " + str(msg.topic) )
-            print( "QoS: " + str(msg.qos) )
-            print( "Payload: " + str(msg.payload) )
+            self.callbacks[SUBSCRIBE_USER_CB](client, userdata, msg)
         
     def __on_subscribe(self, mosq, obj, mid, granted_qos):
         #As we are subscribing to 3 Topics, wait till all 3 topics get subscribed
@@ -128,12 +126,6 @@ class AWSIoTConnect(object):
         self.awshost = endpoint
         self.awsport = port
         
-    #def set_on_connect_callback(self, atconnect):
-    #    self.mqttc.on_connect = atconnect
-        
-    #def set_on_message_callback(self, atmessage):
-    #    self.mqttc.on_message = atmessage
-        
     def set_on_log_callback(self, atlog):
         self.mqttc.on_log = atlog
 
@@ -141,9 +133,7 @@ class AWSIoTConnect(object):
         self.topic = topic
         
     def connect_attempt(self):
-    
-        self.mqttc.on_message    = self.__on_message
-        self.mqttc.on_connect    = self.__on_connect
+
         self.mqttc.on_subscribe  = self.__on_subscribe
         self.mqttc.on_disconnect = self.__on_disconnect
 
@@ -161,21 +151,29 @@ class AWSIoTConnect(object):
         if self.connect == True:
             self.mqttc.publish(self.topic, data, qos=1)
         else:
-            self.logger.debug("Can not send. Connect not established")
+            self.logger.debug("Can not send. Connection not established")
         
     def listen(self):
         if self.connect == True:
             self.mqttc.loop_start()
         else:
-            self.logger.debug("Can not start. Connect not established")
+            self.logger.debug("Can not start. Connection not established")
             
-    def forever(self):
+    def spinlock(self):
         if self.connect == True:
             self.mqttc.loop_forever()
         else:
-            self.logger.debug("Can not start. Connect not established")
+            self.logger.debug("Can not start. Connection not established")
 
-    def test_start(self):
+    def monitor(self):
+        self.mqttc.loop_start()
+        while True:
+            mtopic, mdata, srate = self.callbacks[PUBLISH_USER_CB](self)
+            sleep(srate)
+            if self.connect == True:
+                self.mqttc.publish(mtopic, mdata, qos=1)
+
+    def test(self):
         self.mqttc.loop_start()
 
         while True:
