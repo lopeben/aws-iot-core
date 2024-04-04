@@ -73,6 +73,8 @@ shadowcallbacks = [shadow_update_delta_callback,
                    shadow_get_rejected_callback, 
                    shadow_update_accepted_callback, 
                    shadow_update_rejected_callback, 
+                   None,
+                   None,
                    subscribe_user_callback, 
                    publish_user_callback]
 
