@@ -19,8 +19,10 @@ SHADOW_GET_ACCEPTED_CB    = 1
 SHADOW_GET_REJECTED_CB    = 2
 SHADOW_UPDATE_ACCEPTED_CB = 3
 SHADOW_UPDATE_REJECTED_CB = 4
-SUBSCRIBE_USER_CB         = 5
-PUBLISH_USER_CB           = 6
+SHADOW_DELETE_ACCEPTED_CB = 5
+SHADOW_DELETE_REJECTED_CB = 6
+SUBSCRIBE_USER_CB         = 7
+PUBLISH_USER_CB           = 8
 
 class AWSIoTConnect(object):
 
@@ -35,6 +37,7 @@ class AWSIoTConnect(object):
         self.thingName = thingname
         self.awshost   = endpoint
         self.awsport   = 8883
+        self.shadow_document = ''
         
         self.mqttc            = paho.Client(clientid)
         self.mqttc.on_connect = self.__on_connect
@@ -44,9 +47,14 @@ class AWSIoTConnect(object):
         self.SHADOW_UPDATE_ACCEPTED_TOPIC = "$aws/things/" + self.thingName + "/shadow/update/accepted"
         self.SHADOW_UPDATE_REJECTED_TOPIC = "$aws/things/" + self.thingName + "/shadow/update/rejected"
         self.SHADOW_UPDATE_DELTA_TOPIC    = "$aws/things/" + self.thingName + "/shadow/update/delta"
+        
         self.SHADOW_GET_TOPIC             = "$aws/things/" + self.thingName + "/shadow/get"
         self.SHADOW_GET_ACCEPTED_TOPIC    = "$aws/things/" + self.thingName + "/shadow/get/accepted"
         self.SHADOW_GET_REJECTED_TOPIC    = "$aws/things/" + self.thingName + "/shadow/get/rejected"
+
+        self.SHADOW_DELETE_TOPIC          = "$aws/things/" + self.thingName + "/shadow/delete"
+        self.SHADOW_DELETE_ACCEPTED_TOPIC = "$aws/things/" + self.thingName + "/shadow/accepted" 
+        self.SHADOW_DELETE_REJECTED_TOPIC = "$aws/things/" + self.thingName + "/shadow/rejected" 
         
         self.callbacks = usercallbacks
 
@@ -59,6 +67,8 @@ class AWSIoTConnect(object):
             self.mqttc.subscribe(self.SHADOW_UPDATE_REJECTED_TOPIC, 1)	
             self.mqttc.subscribe(self.SHADOW_GET_ACCEPTED_TOPIC, 1)
             self.mqttc.subscribe(self.SHADOW_GET_REJECTED_TOPIC, 1)
+            self.mqttc.subscribe(self.SHADOW_DELETE_ACCEPTED_TOPIC, 1)
+            self.mqttc.subscribe(self.SHADOW_DELETE_REJECTED_TOPIC, 1)
             
             self.mqttc.subscribe(self.topic)
 
@@ -94,6 +104,17 @@ class AWSIoTConnect(object):
             SHADOW_UPDATE_ERROR = msg.payload
             print( "\n---ERROR--- Failed to Update the Shadow...\nError Response: " + SHADOW_UPDATE_ERROR )
             self.callbacks[SHADOW_UPDATE_REJECTED_CB]()
+
+        elif str(msg.topic) == self.SHADOW_DELETE_ACCEPTED_TOPIC:
+            SHADOW_STATE_DOC = msg.payload
+            print( "\n---ERROR--- Failed to Delete the Shadow...\nError Response: " + SHADOW_STATE_DOC )
+            self.__create_shadow_document()
+            self.callbacks[SHADOW_DELETE_ACCEPTED_CB]()
+
+        elif str(msg.topic) == self.SHADOW_DELETE_REJECTED_TOPIC:
+            SHADOW_DELETE_ERROR = msg.payload
+            print( "\n---ERROR--- Failed to Delete the Shadow...\nError Response: " + SHADOW_DELETE_ERROR )
+            self.callbacks[SHADOW_DELETE_REJECTED_CB]()
         
         else:
             self.callbacks[SUBSCRIBE_USER_CB](client, userdata, msg)
@@ -116,6 +137,10 @@ class AWSIoTConnect(object):
         
     def __callback(self, callbackid, args):
         self.callbacks[callbackid](args)
+
+    def __create_shadow_document(self):
+        if self.connect == True:
+            self.mqttc.publish(self.SHADOW_UPDATE_TOPIC, self.shadow_document, qos=1)
         
     def set_credentials(self, rootcafile, certfile, keyfile):
         self.caPath = rootcafile
@@ -131,6 +156,11 @@ class AWSIoTConnect(object):
 
     def set_topic(self, topic):
         self.topic = topic
+
+    def set_shadow_document(self, shadow_document):
+        if self.connect == True:
+            self.mqttc.publish(self.SHADOW_DELETE_TOPIC, "", qos=1)
+            self.shadow_document = shadow_document
         
     def connect_attempt(self):
 
