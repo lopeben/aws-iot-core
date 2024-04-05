@@ -176,3 +176,4 @@ secrets.py
 certificates/
 
 .archive/
+certs/
