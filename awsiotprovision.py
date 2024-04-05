@@ -16,17 +16,11 @@ class AWSIoTProvision(object):
 
         self.serial = serial
 
-        self.rootca_file = ''
-        self.privatekey_file = ''
-        self.certificate_file = ''
-
         if not os.path.exists(self.dirpath):
             os.makedirs(self.dirpath)
 
         self.rootca_file = os.path.join(dir_path, 'rootca.rca')
-        #self.privatekey_file = dir_path + self.serial + '_private.key'
         self.privatekey_file = os.path.join(dir_path, self.serial + '_private.key')
-        # self.certificate_file = dir_path + self.serial + '_certitficate.pem'
         self.certificate_file = os.path.join(dir_path, self.serial + '_certitficate.pem')
 
         self.logger    = logging.getLogger(repr(self))
@@ -125,82 +119,3 @@ class AWSIoTProvision(object):
                 return True
         else:
             return False
-
-    # def unregister(self, *args):
-    #     serialnumber = args[0]
-    #     macaddress = args[1]
-        
-    #     success_tag = "Device is successfully removed"
-    #     b64string = self.__base64encode(serialnumber, macaddress)
-
-    #     header = {'Authorization': f'Basic {b64string}'}
-    #     self.logger.debug("Header Information: {0}".format(header))
-
-    #     response = requests.delete(self.urlstring, headers = header)
-    #     jsonstr  = json.loads(response.text)
-
-    #     if (jsonstr["messages"] == success_tag) :
-    #         return True
-    #     else:
-    #         return False
-
-
-    
-    
-
-# base = "https://vquqs6aaik.execute-api.ap-southeast-1.amazonaws.com/dev/plugs/"
-# serial = 'SPRPiSimulator'
-# path = '/cert'
-# urlstring = base + serial + path 
-# print(urlstring)
-
-# mac = '1234567890AB'
-# snmac_string = serial + ":" + mac
-# snmac_bytes = snmac_string.encode("UTF-8")
-# base64_bytes = base64.b64encode(snmac_bytes)
-# print (base64_bytes.decode('UTF-8'))
-
-# auth = "Authorization"
-# type = "Basic"
-# b64string = base64_bytes.decode('UTF-8')
-#header = auth + ": " + type + " " + b64string
-##header = { auth + ": " + type + " " + b64string }
-
-#header = 'Authorization: Basic ' + b64string
-# header = {'Authorization': f'Basic {b64string}'}
-# print(header)
-
-# response = requests.post(urlstring, headers=header)
-
-# Print the response
-# print(response.text)
-
-# secret = json.loads(response.text)
-
-# # Parse the JSON response and write the certificatePem, PrivateKey, and RootCA to separate files
-# CERTIFICATE_FILE = 'certificate.pem'
-# PRIVATEKEY_FILE  = 'private.key'
-# ROOTCA_FILE      = 'rootca.rca'
-
-# dir_path = './certs'
-
-# # Check if the directory exists
-# if not os.path.exists(dir_path):
-#     # If the directory doesn't exist, create it
-#     os.makedirs(dir_path)
-
-# with open(os.path.join(dir_path, CERTIFICATE_FILE), 'w') as f:
-#     f.write(secret['certificatePem'])
-
-# with open(os.path.join(dir_path, PRIVATEKEY_FILE), 'w') as f:
-#     f.write(secret['keyPair']['PrivateKey'])
-
-# with open(os.path.join(dir_path, ROOTCA_FILE), 'w') as f:
-#     f.write(secret['RootCA'])
-
-# Print a success message
-# print("The certificatePem, PrivateKey, and RootCA have been successfully saved to certificate.pem, private.key, and root.ca files respectively.")
-
-
-
-##curl --location --request DELETE 'https://vquqs6aaik.execute-api.ap-southeast-1.amazonaws.com/dev/plugs/SPRPiSimulator/remove' --header 'Authorization: Basic U1BSUGlTaW11bGF0b3I6MTIzNDU2Nzg5MEFC'
