@@ -42,7 +42,7 @@ class AWSIoTConnect(object):
         self.awsport   = 8883
         self.shadow_document = ''
         
-        self.mqttc            = paho.Client(clientid)
+        self.mqttc            = paho.Client(paho.CallbackAPIVersion.VERSION1, clientid)
         self.mqttc.on_connect = self.__on_connect
         self.mqttc.on_message = self.__on_message
         
