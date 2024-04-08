@@ -89,6 +89,10 @@ def publish_user_callback(aws):
     #escalator = lambda id, state : '''{ "escalator_id" : b'{id}, "state" : b'{state}}'''
     id = 0
     state = ESCALATOR_REV
+    # escalator = { "escalator_id" : "%s" % id,
+    #               "state" : "%s" % state
+    #             }
+                
     escalator = { "escalator_id" : "%s" % id, 
                   "state" : "%s" % state
                 }
