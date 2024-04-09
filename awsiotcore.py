@@ -1,9 +1,10 @@
 import os
 import ssl
 import json
-import socket
+import random
 import logging
 
+import paho.mqtt as pversion
 import paho.mqtt.client as paho
 
 from enum import Enum
@@ -27,9 +28,10 @@ class CallbackIndex(Enum):
     SUBSCRIBE_USER  = 8
     PUBLISH_USER    = 9
 
+
 class AWSIoTConnect(object):
 
-    def __init__(self, clientid, thingname, endpoint, topic = "default", listener = False, usercallbacks = None):
+    def __init__(self, thingname, endpoint, clientid = None, topic = "default", listener = False, usercallbacks = None):
         self.connect   = False
         self.listener  = listener
         self.topic     = topic
@@ -41,8 +43,18 @@ class AWSIoTConnect(object):
         self.awshost   = endpoint
         self.awsport   = 8883
         self.shadow_document = ''
+
+        if clientid == None:
+            clientid = f'awsiot-core-{random.randint(0, 1000)}'
+
+        MQTTVERSION = 2
+        major, minor, patch = self.__checkversion()
+        if (major < MQTTVERSION):
+            self.mqttc = paho.Client(clientid)
+        else:
+            self.mqttc = paho.Client(paho.CallbackAPIVersion.VERSION1, clientid)
         
-        self.mqttc            = paho.Client(paho.CallbackAPIVersion.VERSION1, clientid)
+        
         self.mqttc.on_connect = self.__on_connect
         self.mqttc.on_message = self.__on_message
         
@@ -67,6 +79,13 @@ class AWSIoTConnect(object):
 
     def __stub(self):
         pass
+
+    def __checkversion(self):
+        mqtt_version = pversion.__version__
+        # Split the version into major, minor, and patch numbers
+        major, minor, patch = map(int, mqtt_version.split('.'))
+
+        return major, minor, patch
 
     def __on_connect(self, client, userdata, flags, rc):
         self.logger.debug("{0}".format(rc))
@@ -228,9 +247,9 @@ class AWSIoTConnect(object):
     def telemetry(self):
         self.mqttc.loop_start()
         while True:
-            mtopic, mdata, srate = self.callbacks[CallbackIndex.PUBLISH_USER.value](self)
+            mtopic, mdata, srate, gate = self.callbacks[CallbackIndex.PUBLISH_USER.value](self)
             sleep(srate)
-            if self.connect == True:
+            if (self.connect == True) and (gate == True):
                 self.mqttc.publish(mtopic, mdata, qos=1)
 
     def test(self):
