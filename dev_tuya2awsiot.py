@@ -103,7 +103,7 @@ def main():
 
     clientid  = 'iotcore-paho'
     thingname = serial
-    aws = AWSIoTConnect(clientid, thingname, IOT_ENDPOINT, topic = "test/event", listener = True)
+    aws = AWSIoTConnect(thingname, IOT_ENDPOINT, clientid, topic = "test/event", listener = True)
 
     rootcafile = thing.get_rootca_file()
     certfile   = thing.get_certiticate_file()
