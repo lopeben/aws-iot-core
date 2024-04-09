@@ -177,3 +177,5 @@ certificates/
 
 .archive/
 certs/
+*-certs
+*-certs/
