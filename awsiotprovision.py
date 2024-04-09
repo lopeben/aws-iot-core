@@ -9,19 +9,20 @@ logging.basicConfig(level=logging.INFO)
 
 class AWSIoTProvision(object):
 
-    def __init__(self, endpoint, serial, dir_path = '.\certs'):
+    def __init__(self, endpoint, thingname, dir_path = 'certs'):
         
-        self.dirpath = dir_path
         self.urlbase   = endpoint
+        self.thingname = thingname
 
-        self.serial = serial
+        certificate_directory = "./" + thingname + "-" + dir_path
+        if not os.path.exists(certificate_directory):
+            os.makedirs(certificate_directory)
 
-        if not os.path.exists(self.dirpath):
-            os.makedirs(self.dirpath)
+        self.dirpath = certificate_directory
 
-        self.rootca_file = os.path.join(dir_path, 'rootca.rca')
-        self.privatekey_file = os.path.join(dir_path, self.serial + '_private.key')
-        self.certificate_file = os.path.join(dir_path, self.serial + '_certitficate.pem')
+        self.rootca_file = os.path.join(self.dirpath, 'rootca.rca')
+        self.privatekey_file = os.path.join(self.dirpath, self.thingname + '_private.key')
+        self.certificate_file = os.path.join(self.dirpath, self.thingname + '_certitficate.pem')
 
         self.logger    = logging.getLogger(repr(self))
         self.logger.debug("CVM Endpoint URL: {0}".format(self.urlbase))
@@ -49,9 +50,8 @@ class AWSIoTProvision(object):
         with open(self.rootca_file, 'w') as f:
             f.write(secret['RootCA'])
 
-    def set_certdirectory(self, dir_path):
-        
-        self.dirpath = dir_path
+    # def set_certdirectory(self, dir_path):
+    #     self.dirpath = dir_path
 
     def get_rootca_file(self):
 
@@ -74,17 +74,17 @@ class AWSIoTProvision(object):
             self.logger.debug("At least one certificate missing")
             return False
 
-    def register(self, serial, macaddress):
+    def register(self, thingname, macaddress):
 
-        self.logger.debug("Serial Number: {0}".format(serial))
+        self.logger.debug("Thing Name: {0}".format(thingname))
         self.logger.debug("MAC Address  : {0}".format(macaddress))      
-        b64string = self.__base64encode(serial, macaddress)
+        b64string = self.__base64encode(thingname, macaddress)
 
         
         header = {'Authorization': f'Basic {b64string}'}
         self.logger.debug("Header Information: {0}".format(header))
 
-        urlstring = self.urlbase + serial + '/cert'
+        urlstring = self.urlbase + thingname + '/cert'
         self.logger.debug("POST URL: {0}".format(urlstring))
 
         response = requests.post(urlstring, headers = header)
@@ -94,20 +94,20 @@ class AWSIoTProvision(object):
 
         if "$metadata" in jsonstr: 
             if jsonstr["$metadata"]["httpStatusCode"] == 200:
-                self.serial = serial
+                self.thingname = thingname
                 self.__filewrite(response)
                 return True
         else:
             return False
 
-    def unregister(self, serial, macaddress):
+    def unregister(self, thingname, macaddress):
         success_tag = "Device is successfully removed"
-        b64string = self.__base64encode(serial, macaddress)
+        b64string = self.__base64encode(thingname, macaddress)
 
         header = {'Authorization': f'Basic {b64string}'}
         self.logger.debug("Header Information: {0}".format(header))
 
-        urlstring = self.urlbase + serial + '/remove'
+        urlstring = self.urlbase + thingname + '/remove'
         self.logger.debug("POST URL: {0}".format(urlstring))
 
         response = requests.delete(urlstring, headers = header)
