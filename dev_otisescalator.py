@@ -1,5 +1,7 @@
 import time
 import json
+import datetime
+import RPi.GPIO as GPIO
 
 from random import uniform
 from awsiotprovision import AWSIoTProvision
@@ -8,6 +10,40 @@ from secrets import IOT_ENDPOINT, CVM_BASE_URL
 
 
 
+## ROLL_UP, ROLL_DOWN, HALT, RUN
+
+ESCALATOR_STATE_XXX = "UNKNOWN"
+ESCALATOR_STATE_RUN = "RUNNING"
+ESCALATOR_STATE_STP = "STOPPED"
+
+ESCALATOR_DIRECTION_XX = "UNKNOWN"
+ESCALATOR_DIRECTION_UP = "UP"
+ESCALATOR_DIRECTION_DN = "DOWN"
+
+
+previous_state     = ''
+previous_direction = ''
+count = 0
+
+
+GPIO17 = 17
+GPIO27 = 27
+GPIO22 = 22
+GPIO23 = 23
+
+RUN  = YELLOW = GPIO17 
+HLT  = GREEN  = GPIO27 
+FWD  = BLUE   = GPIO22 
+REV  = VIOLET = GPIO23 
+
+
+def initialize_gpio():
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
+    GPIO.setup(GPIO17, GPIO.IN, GPIO.PUD_DOWN) 
+    GPIO.setup(GPIO27, GPIO.IN, GPIO.PUD_DOWN) 
+    GPIO.setup(GPIO22, GPIO.IN, GPIO.PUD_DOWN) 
+    GPIO.setup(GPIO23, GPIO.IN, GPIO.PUD_DOWN) 
 
 def master_switch(aws, shadow_document, shadow_type):
 
@@ -29,12 +65,9 @@ def master_switch(aws, shadow_document, shadow_type):
         print( "---ERROR--- Unhandled Type.")
 
     
-
     # Resolve Shadow Delta in Cloud"  
     if DESIRED_STATUS == "true":
         print("User can add Switching ON controls here")
-
-
 
         #print( "Desired ON. Reporting status back to shadow..." )
         aws.mqttc.publish(aws.SHADOW_UPDATE_TOPIC, SHADOW_STATE_REPORT_ON, qos=1)
@@ -73,62 +106,102 @@ def subscribe_user_callback(client, userdata, msg):
     #print( "QoS: " + str(msg.qos) )
     print( "Payload: " + str(msg.payload) )
 
-## ROLL_UP, ROLL_DOWN, HALT, RUN
-
-ESCALATOR_RUN = 0
-ESCALATOR_HLT = 1
-ESCALATOR_FWD = 2
-ESCALATOR_REV = 3 
-
-ESCALATOR_STATUS = '''{"state" : f{}}'''
 
 
+def escalalator_monitoring_callback(aws):
 
-def publish_user_callback(aws):
+    global previous_state
+    global previous_direction
+    global count
 
-    #escalator = lambda id, state : '''{ "escalator_id" : b'{id}, "state" : b'{state}}'''
     id = 0
-    state = ESCALATOR_REV
-    # escalator = { "escalator_id" : "%s" % id,
-    #               "state" : "%s" % state
-    #             }
-                
-    escalator = { "escalator_id" : "%s" % id, 
-                  "state" : "%s" % state
-                }
-
-    print(escalator)    
     
-    mtopic = aws.topic
-    mdata  = json.dumps(escalator)
-    srate  = 2
+    gpio0 = GPIO.input(RUN)     ## Running
+    gpio1 = GPIO.input(HLT)     ## Halted
+    #print("State0: {0}".format(gpio0))
+    #print("State1: {0}".format(gpio1))
+    if gpio0 and not gpio1:
+        current_state = ESCALATOR_STATE_RUN
+    elif not gpio0 and gpio1:
+        current_state = ESCALATOR_STATE_STP
+    else:
+        current_state = ESCALATOR_STATE_XXX
+    
 
-    return (mtopic, mdata, srate) 
+    gpio2 = GPIO.input(FWD)  ## Going up
+    gpio3 = GPIO.input(REV)  ## Going down
+    #print("State2: {0}".format(gpio2))
+    #print("State3: {0}".format(gpio3))
+    if gpio2 and not gpio3:
+        current_direction = ESCALATOR_DIRECTION_UP
+    elif not gpio2 and gpio3:
+        current_direction = ESCALATOR_DIRECTION_DN
+    else:
+        current_direction = ESCALATOR_DIRECTION_XX
+    
+    
+    now = datetime.datetime.now()
+    timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
+
+    ## Check if running state has changed
+    if current_state == previous_state:
+        gate1 = False
+    else:
+        gate1 = True
+        previous_state = current_state
+
+    ## Check if direction has changed
+    if current_direction == previous_direction:
+        gate2 = False
+    else:
+        gate2 = True
+        previous_direction = current_direction
+
+    gate = gate1 or gate2
+    count = count + 1
+    if count > 300: #300 seconds 
+        gate = True
+        count = 0        
+
+    escalator_status = { "device_time"  : "{0}".format(timestamp),
+                        "escalator_id" : "{0}".format(id), 
+                        "state" : "{0}".format(current_state),
+                        "direction" : "{0}".format(current_direction)
+                        }
+
+    #print(escalator_status)    
+    
+    sampling_rate  = 1 # second
+    mtopic = aws.topic
+    mdata  = json.dumps(escalator_status)
+    return (mtopic, mdata, sampling_rate, gate) 
 
 
 def main():
 
-    serial = 'EscalatorSim01'   #'SPRPiSimu00002'
+    initialize_gpio()
+
+    thingname = 'EscalatorSim02'
     macaddress = '1234567890AC'
     pubsubtopic = 'cic/otis/escalator/01'
 
-    thing = AWSIoTProvision(CVM_BASE_URL, serial)
+    thing = AWSIoTProvision(CVM_BASE_URL, thingname)
 
     if thing.has_certificates():
         print("Root CA: " + thing.get_rootca_file() )
         print("Certificate: " + thing.get_certiticate_file() )
         print("Private Key: " + thing.get_privatekey_file() )
     else:
-        if thing.register(serial, macaddress):
+        if thing.register(thingname, macaddress):
             print("Registration success")
         else: 
             print("Registration failed")
-            thing.unregister(serial, macaddress)
+            thing.unregister(thingname, macaddress)
             return False
 
     clientid  = 'iotcore-paho'
-    thingname = serial
-    aws = AWSIoTConnect(clientid, thingname, IOT_ENDPOINT, topic = pubsubtopic, listener = True)
+    thingname = thingname
+    aws = AWSIoTConnect(thingname, IOT_ENDPOINT, clientid, topic = pubsubtopic, listener = True)
 
     rootcafile = thing.get_rootca_file()
     certfile   = thing.get_certiticate_file()
@@ -142,7 +215,7 @@ def main():
     aws.set_callback(CallbackIndex.UPDATE_ACCEPTED.value, shadow_update_accepted_callback)
     aws.set_callback(CallbackIndex.UPDATE_REJECTED.value, shadow_update_rejected_callback)
     aws.set_callback(CallbackIndex.SUBSCRIBE_USER.value, subscribe_user_callback)
-    aws.set_callback(CallbackIndex.PUBLISH_USER.value, publish_user_callback)
+    aws.set_callback(CallbackIndex.PUBLISH_USER.value, escalalator_monitoring_callback)
     
     aws.connect_attempt()
 
