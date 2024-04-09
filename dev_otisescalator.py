@@ -10,6 +10,11 @@ from secrets import IOT_ENDPOINT, CVM_BASE_URL
 
 
 
+RUN  = YELLOW = GPIO17 = 17 
+HLT  = GREEN  = GPIO27 = 27 
+FWD  = BLUE   = GPIO22 = 22 
+REV  = VIOLET = GPIO23 = 23 
+
 ## ROLL_UP, ROLL_DOWN, HALT, RUN
 
 ESCALATOR_STATE_XXX = "UNKNOWN"
@@ -20,21 +25,9 @@ ESCALATOR_DIRECTION_XX = "UNKNOWN"
 ESCALATOR_DIRECTION_UP = "UP"
 ESCALATOR_DIRECTION_DN = "DOWN"
 
-
 previous_state     = ''
 previous_direction = ''
 count = 0
-
-
-GPIO17 = 17
-GPIO27 = 27
-GPIO22 = 22
-GPIO23 = 23
-
-RUN  = YELLOW = GPIO17 
-HLT  = GREEN  = GPIO27 
-FWD  = BLUE   = GPIO22 
-REV  = VIOLET = GPIO23 
 
 
 def initialize_gpio():
