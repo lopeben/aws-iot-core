@@ -16,7 +16,6 @@ FWD  = BLUE   = GPIO22 = 22
 REV  = VIOLET = GPIO23 = 23 
 
 ## ROLL_UP, ROLL_DOWN, HALT, RUN
-
 ESCALATOR_STATE_XXX = "UNKNOWN"
 ESCALATOR_STATE_RUN = "RUNNING"
 ESCALATOR_STATE_STP = "STOPPED"
@@ -164,10 +163,10 @@ def escalalator_monitoring_callback(aws):
 
     #print(escalator_status)    
     
-    sampling_rate  = 1 # second
+    polling_rate  = 1 # second
     mtopic = aws.topic
     mdata  = json.dumps(escalator_status)
-    return (mtopic, mdata, sampling_rate, gate) 
+    return (mtopic, mdata, polling_rate, gate) 
 
 
 def main():
@@ -176,7 +175,7 @@ def main():
 
     thingname = 'EscalatorSim02'
     macaddress = '1234567890AC'
-    pubsubtopic = 'cic/otis/escalator/01'
+    pubsubtopic = 'cic/otis/' + thingname + '/status'
 
     thing = AWSIoTProvision(CVM_BASE_URL, thingname)
 
